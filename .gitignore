@@ -10,3 +10,4 @@ frontend/webpack.config.js
 frontend/webpack.dev.config.js
 frontend/vite.config.js
 .DS_STORE
+backend/node
