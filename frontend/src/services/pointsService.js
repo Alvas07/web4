@@ -215,9 +215,9 @@ export async function checkPointsFromGraph(points, graphXMin, graphXMax, graphYM
 }
 
 // Получение истории
-export async function getHistory(lastCreatedAt = null, lastId = null, limit = 20, token) {
+export async function getHistory(lastCreatedAt = null, lastId = null, limit = 20, token, offset = 0, needTotalCount = false) {
   try {
-    const requestBody = { limit }
+    const requestBody = { limit, offset, needTotalCount }
     // Преобразуем дату в ISO формат строки
     if (lastCreatedAt) {
       requestBody.lastCreatedAt = lastCreatedAt instanceof Date 
@@ -281,8 +281,12 @@ export async function getHistory(lastCreatedAt = null, lastId = null, limit = 20
     
     const data = await response.json()
     
+    // Проверяем, пришел ли ответ с пагинацией (HistoryResponseDTO) или просто массив (для обратной совместимости)
+    let entries = Array.isArray(data) ? data : (data.entries || [])
+    const totalCount = data.totalCount !== undefined ? data.totalCount : null
+    
     // Преобразуем данные из формата DTO в нужный формат
-    return Array.isArray(data) ? data.map(entry => {
+    const transformed = entries.map(entry => {
       // Обрабатываем разные форматы данных (может быть entry.point или прямые поля)
       const pointData = entry.point || entry
       const x = pointData.x !== undefined ? pointData.x : entry.x
@@ -306,7 +310,15 @@ export async function getHistory(lastCreatedAt = null, lastId = null, limit = 20
         createdAt: createdAtStr,
         execTime: entry.execTime
       }
-    }) : []
+    })
+    
+    // Если есть totalCount, возвращаем объект с записями и общим количеством
+    if (totalCount !== null) {
+      return { entries: transformed, totalCount }
+    }
+    
+    // Иначе возвращаем просто массив для обратной совместимости
+    return transformed
   } catch (error) {
     console.error('Ошибка получения истории:', error)
     throw error

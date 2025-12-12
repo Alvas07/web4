@@ -14,6 +14,12 @@ public class HistoryRequestDTO {
     @JsonProperty("limit")
     private int limit = 20;
     
+    @JsonProperty("offset")
+    private int offset = 0;
+    
+    @JsonProperty("needTotalCount")
+    private boolean needTotalCount = false;
+    
     public HistoryRequestDTO() {}
     
     public LocalDateTime lastCreatedAt() {
@@ -35,6 +41,14 @@ public class HistoryRequestDTO {
         return limit;
     }
     
+    public int offset() {
+        return offset;
+    }
+    
+    public boolean needTotalCount() {
+        return needTotalCount;
+    }
+    
     // Setters for deserialization
     public void setLastCreatedAt(String lastCreatedAtStr) {
         this.lastCreatedAtStr = lastCreatedAtStr;
@@ -46,5 +60,13 @@ public class HistoryRequestDTO {
     
     public void setLimit(int limit) {
         this.limit = limit;
+    }
+    
+    public void setOffset(int offset) {
+        this.offset = offset;
+    }
+    
+    public void setNeedTotalCount(boolean needTotalCount) {
+        this.needTotalCount = needTotalCount;
     }
 }

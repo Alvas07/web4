@@ -147,8 +147,10 @@ const scaleY = (y) => {
 const inverseScaleX = (pageX) => {
   if (!canvas.value) return 0
   const rect = canvas.value.getBoundingClientRect()
+  // Получаем координаты мыши относительно canvas (в CSS пикселях)
   const px = pageX - rect.left
-  const size = getCanvasSize()
+  // Размер canvas в CSS пикселях (без учета pixel ratio)
+  const size = rect.width
   const range = SCALE_MAX - SCALE_MIN
   return SCALE_MIN + (px / size) * range
 }
@@ -156,8 +158,10 @@ const inverseScaleX = (pageX) => {
 const inverseScaleY = (pageY) => {
   if (!canvas.value) return 0
   const rect = canvas.value.getBoundingClientRect()
+  // Получаем координаты мыши относительно canvas (в CSS пикселях)
   const py = pageY - rect.top
-  const size = getCanvasSize()
+  // Размер canvas в CSS пикселях (без учета pixel ratio)
+  const size = rect.height
   const range = SCALE_MAX - SCALE_MIN
   return SCALE_MIN + (1 - (py / size)) * range
 }

@@ -10,6 +10,18 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const error = ref(null)
 
+  // Декодирование JWT токена для получения username
+  const decodeToken = (token) => {
+    try {
+      const payload = token.split('.')[1]
+      const decoded = JSON.parse(atob(payload))
+      return decoded.sub || decoded.username || null
+    } catch (e) {
+      console.error('Ошибка декодирования токена:', e)
+      return null
+    }
+  }
+
   // Регистрация
   const register = async (username, password) => {
     loading.value = true
@@ -20,6 +32,8 @@ export const useAuthStore = defineStore('auth', () => {
       
       // Сохраняем токен в localStorage
       localStorage.setItem('accessToken', data.accessToken)
+      // Сохраняем username для быстрого доступа
+      localStorage.setItem('username', username)
       
       // Устанавливаем пользователя
       user.value = { username }
@@ -44,6 +58,8 @@ export const useAuthStore = defineStore('auth', () => {
       
       // Сохраняем токен в localStorage
       localStorage.setItem('accessToken', data.accessToken)
+      // Сохраняем username для быстрого доступа
+      localStorage.setItem('username', username)
       
       // Устанавливаем пользователя
       user.value = { username }
@@ -63,8 +79,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authService.logout()
       
-      // Удаляем токен из localStorage
+      // Удаляем токен и username из localStorage
       localStorage.removeItem('accessToken')
+      localStorage.removeItem('username')
       
       // Сбрасываем состояние
       user.value = null
@@ -81,7 +98,18 @@ export const useAuthStore = defineStore('auth', () => {
     const token = localStorage.getItem('accessToken')
     if (token) {
       isAuthenticated.value = true
-      // Здесь можно добавить декодирование токена для получения данных пользователя
+      // Восстанавливаем username из localStorage или декодируем из токена
+      const savedUsername = localStorage.getItem('username')
+      if (savedUsername) {
+        user.value = { username: savedUsername }
+      } else {
+        // Пытаемся декодировать из токена
+        const decodedUsername = decodeToken(token)
+        if (decodedUsername) {
+          user.value = { username: decodedUsername }
+          localStorage.setItem('username', decodedUsername)
+        }
+      }
     }
   }
 

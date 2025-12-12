@@ -2,6 +2,7 @@ package rest;
 
 import dto.HistoryEntryDTO;
 import dto.HistoryRequestDTO;
+import dto.HistoryResponseDTO;
 import dto.PollRequestDTO;
 import ejb.AuthBean;
 import ejb.HistoryBean;
@@ -48,11 +49,28 @@ public class HistoryController {
 
     @POST
     public Response getHistory(HistoryRequestDTO req) {
-        int limit = Math.min(req.limit(), 100);
-        List<HistoryEntryDTO> history = historyBean.getHistory(
-                req.lastCreatedAt(), req.lastId(), limit
-        );
-        return Response.ok(history).build();
+        // Если указан offset, используем пагинацию через offset
+        if (req.offset() > 0 || req.needTotalCount()) {
+            int limit = Math.min(req.limit(), 100);
+            int offset = Math.max(req.offset(), 0);
+            
+            List<HistoryEntryDTO> history = historyBean.getHistoryWithOffset(offset, limit);
+            Long totalCount = null;
+            
+            if (req.needTotalCount()) {
+                totalCount = historyBean.getTotalCount();
+            }
+            
+            HistoryResponseDTO response = new HistoryResponseDTO(history, totalCount);
+            return Response.ok(response).build();
+        } else {
+            // Старый способ через курсорную пагинацию (для обратной совместимости)
+            int limit = Math.min(req.limit(), 100);
+            List<HistoryEntryDTO> history = historyBean.getHistory(
+                    req.lastCreatedAt(), req.lastId(), limit
+            );
+            return Response.ok(history).build();
+        }
     }
 
     @DELETE

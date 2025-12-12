@@ -115,9 +115,19 @@ export const usePointsStore = defineStore('points', () => {
         throw new Error('Не авторизован')
       }
       
-      const history = await pointsService.getHistory(null, null, 50, token)
+      // Загружаем первую страницу истории через пагинацию
+      const result = await pointsService.getHistory(null, null, 15, token, 0, true)
+      
+      // Обрабатываем ответ с пагинацией
+      let history = []
+      if (result && typeof result === 'object' && 'entries' in result) {
+        history = result.entries || []
+      } else {
+        history = Array.isArray(result) ? result : []
+      }
+      
       points.value = []
-      addPoints(Array.isArray(history) ? history : [])
+      addPoints(history)
       return history
     } catch (err) {
       error.value = err.message
@@ -240,6 +250,7 @@ export const usePointsStore = defineStore('points', () => {
   return {
     points,
     allPoints,
+    allPointsCombined,
     selectedR,
     loading,
     error,

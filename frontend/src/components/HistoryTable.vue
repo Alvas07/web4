@@ -12,7 +12,7 @@
           {{ testingRateLimit ? 'Тестирование...' : 'Тест Rate Limit' }}
         </button>
         <button 
-          class="btn btn-danger"
+          class="btn btn-clear-history"
           @click="clearHistory"
           :disabled="loading"
         >
@@ -35,7 +35,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="entry in points" :key="entry.id">
+          <tr v-for="entry in paginatedPoints" :key="entry.id">
             <td>{{ formatDate(entry.timestamp) }}</td>
             <td>
               <span
@@ -46,25 +46,51 @@
                 {{ entry.hit ? 'Попал' : 'Мимо' }}
               </span>
             </td>
-            <td>{{ entry.x }}</td>
-            <td>{{ entry.y }}</td>
-            <td>{{ entry.r }}</td>
+            <td>{{ formatNumber(entry.x) }}</td>
+            <td>{{ formatNumber(entry.y) }}</td>
+            <td>{{ formatNumber(entry.r) }}</td>
             <td>{{ entry.username }}</td>
             <td>{{ entry.executionTime }}</td>
           </tr>
-          <tr v-if="points.length === 0">
+          <tr v-if="paginatedPoints.length === 0 && !loading">
             <td colspan="7" class="empty-state">
               История проверок пуста
+            </td>
+          </tr>
+          <tr v-if="loading">
+            <td colspan="7" class="empty-state">
+              Загрузка...
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+    
+    <!-- Пагинация -->
+    <div v-if="totalPages > 1" class="pagination">
+      <button 
+        class="pagination-btn"
+        @click="goToPage(currentPage - 1)"
+        :disabled="currentPage === 1 || loading"
+      >
+        ← Назад
+      </button>
+      <span class="pagination-info">
+        Страница {{ currentPage }} из {{ totalPages }} (всего записей: {{ totalRecords }})
+      </span>
+      <button 
+        class="pagination-btn"
+        @click="goToPage(currentPage + 1)"
+        :disabled="currentPage === totalPages || loading"
+      >
+        Вперед →
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { usePointsStore } from '../stores/pointsStore'
 import { useAuthStore } from '../stores/authStore'
 import { showError, showSuccess, showInfo } from '../utils/notifications'
@@ -73,25 +99,102 @@ import * as pointsService from '../services/pointsService'
 const pointsStore = usePointsStore()
 const authStore = useAuthStore()
 
-const loading = false
+const loading = ref(false)
 const testingRateLimit = ref(false)
+const currentPage = ref(1)
+const pageSize = 15
+const totalRecords = ref(0)
+const allHistoryPoints = ref([])
 
 // Проверяем, находимся ли мы в режиме разработки
 const isDevelopment = computed(() => {
   return import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 })
 
-const points = computed(() => {
-  // Используем allPointsCombined, который уже отсортирован
-  const pts = pointsStore.allPointsCombined || []
-  console.log('HistoryTable points computed:', pts, 'length:', pts.length)
-  // Возвращаем отсортированный массив (самые новые первыми)
-  return pts
+// Загружаем историю с пагинацией
+const loadHistoryPage = async (page = 1) => {
+  loading.value = true
+  try {
+    const token = authStore.getToken()
+    if (!token) {
+      throw new Error('Не авторизован')
+    }
+    
+    // Используем пагинацию на бэкенде
+    const offset = (page - 1) * pageSize
+    const result = await pointsService.getHistory(null, null, pageSize, token, offset, true)
+    
+    // Проверяем формат ответа (может быть объект с entries и totalCount или просто массив)
+    if (result && typeof result === 'object' && 'entries' in result) {
+      allHistoryPoints.value = result.entries || []
+      totalRecords.value = result.totalCount || 0
+    } else {
+      // Обратная совместимость - если пришел просто массив
+      allHistoryPoints.value = Array.isArray(result) ? result : []
+      totalRecords.value = allHistoryPoints.value.length
+    }
+    
+    // НЕ обновляем store.points здесь, чтобы избежать бесконечного цикла
+    // Store обновляется только при добавлении новых точек через checkPointFromForm/checkPointFromGraph
+  } catch (error) {
+    showError(error.message || 'Ошибка при загрузке истории')
+  } finally {
+    loading.value = false
+  }
+}
+
+// Вычисляем пагинированные точки (теперь данные уже приходят с бэкенда пагинированными)
+const paginatedPoints = computed(() => {
+  return allHistoryPoints.value
 })
+
+const totalPages = computed(() => {
+  return Math.ceil(totalRecords.value / pageSize)
+})
+
+const goToPage = async (page) => {
+  if (page < 1 || page > totalPages.value || loading.value) return
+  currentPage.value = page
+  // Загружаем данные для новой страницы с бэкенда
+  await loadHistoryPage(page)
+}
+
+// Загружаем историю при монтировании
+onMounted(async () => {
+  await loadHistoryPage(1)
+})
+
+// Следим за изменениями в store только для новых точек (не для всех изменений)
+// Используем флаг, чтобы избежать бесконечных циклов
+let isUpdatingFromStore = false
+watch(() => pointsStore.allPointsCombined, async (newPoints, oldPoints) => {
+  // Пропускаем обновление, если мы сами обновляем store
+  if (isUpdatingFromStore) return
+  
+  // Проверяем, действительно ли появились новые точки
+  if (Array.isArray(newPoints) && Array.isArray(oldPoints)) {
+    const newIds = new Set(newPoints.map(p => p.id))
+    const oldIds = new Set(oldPoints.map(p => p.id))
+    const hasNewPoints = newPoints.some(p => !oldIds.has(p.id))
+    
+    // Если есть новые точки и мы на первой странице, обновляем
+    if (hasNewPoints && currentPage.value === 1 && !loading.value) {
+      await loadHistoryPage(1)
+    }
+  }
+}, { deep: true })
 
 const formatDate = (timestamp) => {
   if (!timestamp) return ''
   return new Date(timestamp).toLocaleString('ru-RU')
+}
+
+const formatNumber = (value) => {
+  if (value === null || value === undefined) return ''
+  const num = typeof value === 'number' ? value : parseFloat(value)
+  if (isNaN(num)) return value
+  // Всегда показываем 3 знака после запятой
+  return num.toFixed(3)
 }
 
 const clearHistory = async () => {
@@ -100,7 +203,34 @@ const clearHistory = async () => {
   }
   
   try {
+    const currentUsername = authStore.user?.username
+    if (!currentUsername) {
+      showError('Не авторизован')
+      return
+    }
+    
+    // Сначала удаляем на бэкенде
     await pointsStore.clearHistory()
+    
+    // Удаляем только свои точки из локального массива истории
+    const beforeCount = allHistoryPoints.value.length
+    allHistoryPoints.value = allHistoryPoints.value.filter(point => point.username !== currentUsername)
+    const removedCount = beforeCount - allHistoryPoints.value.length
+    
+    // Обновляем общее количество записей
+    if (totalRecords.value > 0) {
+      totalRecords.value = Math.max(0, totalRecords.value - removedCount)
+    }
+    
+    // Если текущая страница пуста и есть другие страницы, переходим на первую
+    if (allHistoryPoints.value.length === 0 && currentPage.value > 1) {
+      currentPage.value = 1
+      await loadHistoryPage(1)
+    } else if (allHistoryPoints.value.length === 0 && totalRecords.value > 0) {
+      // Если все точки на текущей странице удалены, но есть еще записи, перезагружаем
+      await loadHistoryPage(1)
+    }
+    
     showSuccess('История очищена')
   } catch (error) {
     showError(error.message || 'Ошибка при очистке истории')
@@ -194,6 +324,11 @@ const testRateLimit = async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .table-title {
@@ -209,15 +344,21 @@ const testRateLimit = async () => {
 
 .table-container {
   flex: 1;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid #eaeaea;
   border-radius: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   background: white;
+  table-layout: auto;
 }
 
 .table th,
@@ -274,16 +415,41 @@ const testRateLimit = async () => {
 @media (max-width: 768px) {
   .table {
     font-size: 0.875rem;
+    min-width: 600px; /* Минимальная ширина для таблицы */
   }
   
   .table th,
   .table td {
     padding: 0.5rem;
+    white-space: nowrap;
   }
   
   .result-badge {
     padding: 0.125rem 0.25rem;
     font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .history-table {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table {
+    font-size: 0.75rem;
+    min-width: 500px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.375rem;
   }
 }
 
@@ -326,5 +492,82 @@ const testRateLimit = async () => {
   .table-title {
     width: 100%;
   }
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: #2c3e50;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .pagination {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .pagination-info {
+    order: -1;
+    text-align: center;
+  }
+}
+
+.btn-clear-history {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-clear-history:hover:not(:disabled) {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-clear-history:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 </style>

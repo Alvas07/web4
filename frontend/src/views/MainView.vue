@@ -59,13 +59,7 @@ onMounted(async () => {
     return
   }
   
-  // Загружаем историю точек
-  try {
-    await pointsStore.loadHistory()
-  } catch (error) {
-    showError(error.message || 'Ошибка при загрузке истории')
-  }
-  
+  // История точек теперь загружается через пагинацию в HistoryTable компоненте
   // Запускаем long-polling для получения новых точек
   pointsStore.startPolling()
   
@@ -129,14 +123,16 @@ const handleGraphPointClick = (point) => {
   padding: 1rem;
   gap: 1rem;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .top-section {
   display: flex;
   gap: 1rem;
   flex: 0 0 auto;
-  max-height: 60vh;
+  max-height: 50vh;
   min-height: 0;
 }
 
@@ -147,7 +143,8 @@ const handleGraphPointClick = (point) => {
 }
 
 .graph {
-  flex: 1;
+  flex: 0 0 400px;
+  max-width: 400px;
   min-width: 0;
 }
 
@@ -157,28 +154,29 @@ const handleGraphPointClick = (point) => {
   box-sizing: border-box;
 }
 
-/* Мобильная верстка - все элементы друг под другом */
-@media (max-width: 1037px) {
+/* Планшетная верстка - форма и график рядом, история внизу */
+/* >= 703px и < 1038px */
+@media (min-width: 703px) and (max-width: 1037px) {
   .content {
     flex-direction: column;
   }
   
   .top-section {
-    flex-direction: column;
-    max-height: none;
+    flex-direction: row;
+    max-height: 45vh;
     width: 100%;
   }
   
   .controls {
-    flex: 0 0 auto;
-    width: 100%;
-    max-width: 100%;
+    flex: 0 0 300px;
+    width: 300px;
+    max-width: 300px;
   }
   
   .graph {
-    width: 100%;
-    min-height: 350px;
-    flex: 0 0 auto;
+    flex: 1;
+    max-width: none;
+    min-height: 0;
   }
   
   .history {
@@ -186,42 +184,55 @@ const handleGraphPointClick = (point) => {
   }
 }
 
+/* Мобильная верстка - 3 карточки друг под другом по 50% ширины */
+/* < 703px */
 @media (max-width: 702px) {
   .content {
-    padding: 0.5rem;
-    gap: 0.75rem;
+    flex-direction: column;
+    padding: 0.25rem;
+    gap: 0.375rem;
+    max-width: 100%;
+    overflow-x: hidden;
+    min-width: 0;
+    align-items: center;
   }
   
   .top-section {
-    gap: 0.75rem;
+    flex-direction: column;
+    max-height: none;
+    width: 100%;
+    max-width: 100%;
+    gap: 0.375rem;
+    min-width: 0;
+    align-items: center;
   }
   
   .controls {
-    width: 100%;
+    width: 50%;
+    max-width: 50%;
+    min-width: 0;
+    flex: 0 0 auto;
   }
   
   .graph {
-    min-height: 300px;
+    width: 50%;
+    max-width: 50%;
+    min-height: 180px;
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+  
+  .history {
+    width: 50%;
+    max-width: 50%;
+    min-width: 0;
+    overflow-x: auto;
   }
 }
 
-/* Обработка очень маленьких экранов */
-@media (max-width: 480px) {
-  .content {
-    padding: 0.25rem;
-    gap: 0.5rem;
-  }
-  
-  .top-section {
-    gap: 0.5rem;
-  }
-  
-  .graph {
-    min-height: 250px;
-  }
-}
-
-/* Возврат к исходному виду при увеличении размера */
+/* Десктопная верстка - форма и график рядом, история внизу */
+/* >= 1038px */
 @media (min-width: 1038px) {
   .content {
     flex-direction: column;
@@ -229,7 +240,7 @@ const handleGraphPointClick = (point) => {
   
   .top-section {
     flex-direction: row;
-    max-height: 60vh;
+    max-height: 50vh;
   }
   
   .controls {
@@ -238,7 +249,8 @@ const handleGraphPointClick = (point) => {
   }
   
   .graph {
-    flex: 1;
+    flex: 0 0 400px;
+    max-width: 400px;
     min-width: 0;
   }
   

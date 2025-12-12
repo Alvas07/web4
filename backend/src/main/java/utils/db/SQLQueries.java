@@ -56,4 +56,34 @@ public final class SQLQueries {
                     OR (h.createdAt = ?1 AND h.id < ?2))
             ORDER BY h.createdAt DESC, h.id DESC
             """;
+
+    public static final String GET_HISTORY_ALL = """
+            SELECT h FROM HistoryEntry h JOIN FETCH h.user ORDER BY h.createdAt DESC, h.id DESC
+            """;
+
+    public static final String GET_HISTORY_WITH_CURSOR = """
+            SELECT h FROM HistoryEntry h JOIN FETCH h.user 
+            WHERE h.createdAt < ?1 OR (h.createdAt = ?1 AND h.id < ?2) 
+            ORDER BY h.createdAt DESC, h.id DESC
+            """;
+
+    public static final String GET_HISTORY_WITH_OFFSET = """
+            SELECT h FROM HistoryEntry h JOIN FETCH h.user ORDER BY h.createdAt DESC, h.id DESC
+            """;
+
+    public static final String COUNT_HISTORY_ENTRIES = """
+            SELECT COUNT(h) FROM HistoryEntry h
+            """;
+
+    public static final String GET_NEW_POINTS_ALL = """
+            SELECT h FROM HistoryEntry h JOIN FETCH h.user 
+            WHERE h.user.username != :currentUsername 
+            ORDER BY h.createdAt DESC, h.id DESC
+            """;
+
+    public static final String GET_NEW_POINTS_AFTER_DATE = """
+            SELECT h FROM HistoryEntry h JOIN FETCH h.user 
+            WHERE h.user.username != :currentUsername AND h.createdAt > :lastCreatedAt 
+            ORDER BY h.createdAt ASC, h.id ASC
+            """;
 }

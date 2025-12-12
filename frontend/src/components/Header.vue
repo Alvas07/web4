@@ -111,13 +111,18 @@ const handleLogout = () => {
   text-decoration: none;
 }
 
+/* Мобильная верстка - < 703px */
 @media (max-width: 702px) {
   .header {
     padding: 0 0.5rem;
+    width: 50%;
+    max-width: 50%;
+    margin-left: auto;
+    margin-right: auto;
   }
   
   .header-left h1 {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
   
   .header-right {
@@ -125,8 +130,13 @@ const handleLogout = () => {
   }
   
   .username {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     padding: 0.2rem 0.5rem;
+  }
+  
+  .logout-button {
+    padding: 6px 12px;
+    font-size: 0.85rem;
   }
 }
 </style>

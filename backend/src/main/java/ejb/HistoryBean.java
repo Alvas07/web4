@@ -18,19 +18,15 @@ public class HistoryBean {
     private EntityManager em;
 
     public List<HistoryEntryDTO> getHistory(LocalDateTime lastCreatedAt, Long lastId, int limit) {
-        String queryStr;
+        TypedQuery<HistoryEntry> q;
         if (lastCreatedAt == null) {
-            queryStr = "SELECT h FROM HistoryEntry h JOIN FETCH h.user ORDER BY h.createdAt DESC, h.id DESC";
+            q = em.createQuery(SQLQueries.GET_HISTORY_ALL, HistoryEntry.class);
         } else {
-            queryStr = "SELECT h FROM HistoryEntry h JOIN FETCH h.user WHERE h.createdAt < ?1 OR (h.createdAt = ?1 AND h.id < ?2) ORDER BY h.createdAt DESC, h.id DESC";
-        }
-        
-        TypedQuery<HistoryEntry> q = em.createQuery(queryStr, HistoryEntry.class);
-        
-        if (lastCreatedAt != null) {
+            q = em.createQuery(SQLQueries.GET_HISTORY_WITH_CURSOR, HistoryEntry.class);
             q.setParameter(1, lastCreatedAt);
             q.setParameter(2, lastId != null ? lastId : 0L);
         }
+        
         q.setMaxResults(limit);
 
         List<HistoryEntry> entries = q.getResultList();
@@ -44,6 +40,29 @@ public class HistoryBean {
                         h.getExecTime()
                 ))
                 .toList();
+    }
+    
+    public List<HistoryEntryDTO> getHistoryWithOffset(int offset, int limit) {
+        TypedQuery<HistoryEntry> q = em.createQuery(SQLQueries.GET_HISTORY_WITH_OFFSET, HistoryEntry.class);
+        q.setFirstResult(offset);
+        q.setMaxResults(limit);
+
+        List<HistoryEntry> entries = q.getResultList();
+
+        return entries.stream()
+                .map(h -> new HistoryEntryDTO(
+                        new PointDTO(h.getPoint().getX(), h.getPoint().getY(), h.getPoint().getR()),
+                        h.isHit(),
+                        h.getUser().getUsername(),
+                        h.getCreatedAt(),
+                        h.getExecTime()
+                ))
+                .toList();
+    }
+    
+    public Long getTotalCount() {
+        TypedQuery<Long> q = em.createQuery(SQLQueries.COUNT_HISTORY_ENTRIES, Long.class);
+        return q.getSingleResult();
     }
 
     public void save(List<HistoryEntry> entries) {
@@ -72,22 +91,18 @@ public class HistoryBean {
      * @return список новых точек
      */
     public List<HistoryEntryDTO> getNewPoints(LocalDateTime lastCreatedAt, Long lastId, String currentUsername) {
-        String queryStr;
+        TypedQuery<HistoryEntry> q;
         if (lastCreatedAt == null) {
             // Если нет последней даты, получаем последние 20 точек от других пользователей
-            queryStr = "SELECT h FROM HistoryEntry h JOIN FETCH h.user WHERE h.user.username != :currentUsername ORDER BY h.createdAt DESC, h.id DESC";
+            q = em.createQuery(SQLQueries.GET_NEW_POINTS_ALL, HistoryEntry.class);
         } else {
             // Получаем точки, созданные после указанной даты, исключая текущего пользователя
             // Используем только createdAt для простоты, дубликаты будут отфильтрованы на фронтенде
-            queryStr = "SELECT h FROM HistoryEntry h JOIN FETCH h.user WHERE h.user.username != :currentUsername AND h.createdAt > :lastCreatedAt ORDER BY h.createdAt ASC, h.id ASC";
-        }
-        
-        TypedQuery<HistoryEntry> q = em.createQuery(queryStr, HistoryEntry.class);
-        q.setParameter("currentUsername", currentUsername);
-        
-        if (lastCreatedAt != null) {
+            q = em.createQuery(SQLQueries.GET_NEW_POINTS_AFTER_DATE, HistoryEntry.class);
             q.setParameter("lastCreatedAt", lastCreatedAt);
         }
+        
+        q.setParameter("currentUsername", currentUsername);
         
         if (lastCreatedAt == null) {
             q.setMaxResults(20); // Ограничиваем для начальной загрузки
