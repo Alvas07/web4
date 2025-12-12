@@ -11,3 +11,6 @@ frontend/webpack.dev.config.js
 frontend/vite.config.js
 .DS_STORE
 backend/node
+backend/src/main/webapp/assets/
+backend/src/main/webapp/favicon.ico
+backend/src/main/webapp/index.html
