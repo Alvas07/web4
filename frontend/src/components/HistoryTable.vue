@@ -134,8 +134,7 @@ const loadHistoryPage = async (page = 1) => {
     }
     
     // Используем пагинацию на бэкенде
-    const offset = (page - 1) * pageSize
-    const result = await pointsService.getHistory(null, null, pageSize, token, offset, true)
+    const result = await pointsService.getHistory(null, null, page, pageSize, token, true)
     
     // Проверяем формат ответа (может быть объект с entries и totalCount или просто массив)
     if (result && typeof result === 'object' && 'entries' in result) {

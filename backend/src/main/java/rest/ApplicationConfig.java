@@ -1,5 +1,7 @@
 package rest;
 
+import exceptions.GlobalExceptionMapper;
+import filters.AuthFilter;
 import jakarta.ws.rs.ApplicationPath;
 import jakarta.ws.rs.core.Application;
 import jakarta.ws.rs.ext.ContextResolver;
@@ -18,6 +20,8 @@ public class ApplicationConfig extends Application {
         classes.add(PointController.class);
         classes.add(HistoryController.class);
         classes.add(JacksonObjectMapperProvider.class);
+        classes.add(GlobalExceptionMapper.class);
+        classes.add(AuthFilter.class);
         return classes;
     }
 

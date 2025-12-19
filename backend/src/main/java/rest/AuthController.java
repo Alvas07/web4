@@ -5,13 +5,14 @@ import dto.UserRequestDTO;
 import ejb.AuthBean;
 import entities.User;
 import exceptions.AuthException;
+import exceptions.RateLimitException;
 import jakarta.ejb.EJB;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import utils.auth.JWTUtils;
-import utils.rate.AuthRateLimiter;
+import utils.rate.RateLimitChecker;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.core.Context;
 
@@ -29,7 +30,7 @@ public class AuthController {
     private AuthBean authBean;
     
     @EJB
-    private AuthRateLimiter authRateLimiter;
+    private RateLimitChecker rateLimitChecker;
     
     @Context
     private HttpServletRequest request;
@@ -56,68 +57,43 @@ public class AuthController {
 
     @POST
     @Path("/register")
-    public Response register(UserRequestDTO req) {
+    public Response register(UserRequestDTO req) throws RateLimitException, AuthException {
         logger.info("Received registration request for username: " + req.username());
         
         // Проверка rate limit
         String clientId = getClientIdentifier();
-        if (authRateLimiter.isRateLimited(clientId)) {
-            long waitTime = authRateLimiter.getTimeUntilNextRequest(clientId);
-            return Response.status(Response.Status.TOO_MANY_REQUESTS)
-                    .entity("Too Many Requests. Maximum 3 requests per 30 seconds allowed. Please wait " + (waitTime / 1000) + " seconds.")
-                    .build();
-        }
+        rateLimitChecker.checkAuthRateLimit(clientId);
         
-        try {
-            User user = authBean.register(req.username(), req.password());
+        User user = authBean.register(req.username(), req.password());
 
-            String accessToken = JWTUtils.generateAccessToken(user.getUsername());
-            String refreshToken = JWTUtils.generateRefreshToken(user.getUsername());
+        String accessToken = JWTUtils.generateAccessToken(user.getUsername());
+        String refreshToken = JWTUtils.generateRefreshToken(user.getUsername());
 
-            logger.info("User registered successfully: " + user.getUsername());
-            return Response.status(Response.Status.CREATED)
-                    .cookie(createRefreshTokenCookie(refreshToken))
-                    .entity(new AuthResponseDTO(accessToken))
-                    .build();
-        } catch (AuthException e) {
-            logger.log(Level.WARNING, "Registration failed: " + e.getMessage(), e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(e.getMessage())
-                    .build();
-        }
+        logger.info("User registered successfully: " + user.getUsername());
+        return Response.status(Response.Status.CREATED)
+                .cookie(createRefreshTokenCookie(refreshToken))
+                .entity(new AuthResponseDTO(accessToken))
+                .build();
     }
 
     @POST
     @Path("/login")
-    public Response login(UserRequestDTO req) {
+    public Response login(UserRequestDTO req) throws RateLimitException, AuthException {
         // Проверка rate limit
         String clientId = getClientIdentifier();
-        if (authRateLimiter.isRateLimited(clientId)) {
-            long waitTime = authRateLimiter.getTimeUntilNextRequest(clientId);
-            return Response.status(Response.Status.TOO_MANY_REQUESTS)
-                    .entity("Too Many Requests. Maximum 3 requests per 30 seconds allowed. Please wait " + (waitTime / 1000) + " seconds.")
-                    .build();
-        }
+        rateLimitChecker.checkAuthRateLimit(clientId);
         
-        try {
-            Optional<User> userOpt = authBean.authenticate(req.username(), req.password());
-            if (userOpt.isEmpty()) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                        .entity("Invalid credentials")
-                        .build();
-            }
-
-            String username = userOpt.get().getUsername();
-            String accessToken = JWTUtils.generateAccessToken(username);
-            String refreshToken = JWTUtils.generateRefreshToken(username);
-
-            return Response.ok(new AuthResponseDTO(accessToken)).cookie(createRefreshTokenCookie(refreshToken)).build();
-        } catch (AuthException e) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(e.getMessage())
-                    .build();
+        Optional<User> userOpt = authBean.authenticate(req.username(), req.password());
+        if (userOpt.isEmpty()) {
+            throw new AuthException("Invalid credentials");
         }
-        }
+
+        String username = userOpt.get().getUsername();
+        String accessToken = JWTUtils.generateAccessToken(username);
+        String refreshToken = JWTUtils.generateRefreshToken(username);
+
+        return Response.ok(new AuthResponseDTO(accessToken)).cookie(createRefreshTokenCookie(refreshToken)).build();
+    }
 
     @POST
     @Path("/refresh")
@@ -128,7 +104,7 @@ public class AuthController {
         }
 
         String username = JWTUtils.validateToken(refreshToken);
-        if (username == null) {
+        if (username == null || !JWTUtils.isRefreshToken(refreshToken)) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity("Invalid refresh token").build();
         }

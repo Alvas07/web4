@@ -215,14 +215,20 @@ export async function checkPointsFromGraph(points, graphXMin, graphXMax, graphYM
 }
 
 // Получение истории
-export async function getHistory(lastCreatedAt = null, lastId = null, limit = 20, token, offset = 0, needTotalCount = false) {
+export async function getHistory(lastCreatedAt = null, lastId = null, page = 1, pageSize = 20, token, needTotalCount = false) {
   try {
-    const requestBody = { limit, offset, needTotalCount }
-    // Преобразуем дату в ISO формат строки
+    const requestBody = { page, pageSize, needTotalCount }
+    // Преобразуем дату в Unix timestamp (миллисекунды)
     if (lastCreatedAt) {
-      requestBody.lastCreatedAt = lastCreatedAt instanceof Date 
-        ? lastCreatedAt.toISOString() 
-        : lastCreatedAt
+      if (lastCreatedAt instanceof Date) {
+        requestBody.lastCreatedAt = lastCreatedAt.getTime()
+      } else if (typeof lastCreatedAt === 'string') {
+        // Если это строка, пытаемся распарсить как дату
+        requestBody.lastCreatedAt = new Date(lastCreatedAt).getTime()
+      } else if (typeof lastCreatedAt === 'number') {
+        // Если это уже число, используем как есть
+        requestBody.lastCreatedAt = lastCreatedAt
+      }
     }
     if (lastId) requestBody.lastId = lastId
     
@@ -388,11 +394,17 @@ export async function clearHistory(username, token) {
 export async function pollNewPoints(lastCreatedAt = null, lastId = null, timeoutSeconds = 30, token) {
   try {
     const requestBody = { timeoutSeconds }
-    // Преобразуем дату в ISO формат строки
+    // Преобразуем дату в Unix timestamp (миллисекунды)
     if (lastCreatedAt) {
-      requestBody.lastCreatedAt = lastCreatedAt instanceof Date 
-        ? lastCreatedAt.toISOString() 
-        : lastCreatedAt
+      if (lastCreatedAt instanceof Date) {
+        requestBody.lastCreatedAt = lastCreatedAt.getTime()
+      } else if (typeof lastCreatedAt === 'string') {
+        // Если это строка, пытаемся распарсить как дату
+        requestBody.lastCreatedAt = new Date(lastCreatedAt).getTime()
+      } else if (typeof lastCreatedAt === 'number') {
+        // Если это уже число, используем как есть
+        requestBody.lastCreatedAt = lastCreatedAt
+      }
     }
     if (lastId) requestBody.lastId = lastId
     

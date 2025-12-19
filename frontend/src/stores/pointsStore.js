@@ -118,7 +118,7 @@ export const usePointsStore = defineStore('points', () => {
       }
       
       // Загружаем первую страницу истории через пагинацию
-      const result = await pointsService.getHistory(null, null, 15, token, 0, true)
+      const result = await pointsService.getHistory(null, null, 1, 15, token, true)
       
       // Обрабатываем ответ с пагинацией
       let history = []

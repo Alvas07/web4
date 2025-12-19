@@ -4,25 +4,24 @@ import dto.HistoryEntryDTO;
 import dto.PointDTO;
 import entities.HistoryEntry;
 import entities.User;
+import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
-import jakarta.persistence.*;
-import utils.db.SQLQueries;
+import repositories.HistoryRepository;
+import repositories.UserRepository;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Stateless
 public class HistoryBean {
-    @PersistenceContext(unitName = "hitCheckerPU")
-    private EntityManager em;
+    @EJB
+    private HistoryRepository historyRepository;
+    
+    @EJB
+    private UserRepository userRepository;
 
     public List<HistoryEntryDTO> getHistoryWithOffset(int offset, int limit) {
-        TypedQuery<HistoryEntry> q = em.createQuery(SQLQueries.GET_HISTORY_WITH_OFFSET, HistoryEntry.class);
-        q.setFirstResult(offset);
-        q.setMaxResults(limit);
-
-        List<HistoryEntry> entries = q.getResultList();
+        List<HistoryEntry> entries = historyRepository.getHistoryWithOffset(offset, limit);
 
         return entries.stream()
                 .map(h -> new HistoryEntryDTO(
@@ -36,49 +35,29 @@ public class HistoryBean {
     }
     
     public Long getTotalCount() {
-        TypedQuery<Long> q = em.createQuery(SQLQueries.COUNT_HISTORY_ENTRIES, Long.class);
-        return q.getSingleResult();
+        return historyRepository.getTotalCount();
     }
 
     public void save(List<HistoryEntry> entries) {
-        for (HistoryEntry entry : entries) {
-            em.persist(entry);
-        }
+        historyRepository.persistAll(entries);
     }
 
     public void deleteByUsername(String username) {
-        try {
-            User user = em.createQuery(SQLQueries.FIND_USER_BY_USERNAME, User.class)
-                    .setParameter("username", username)
-                    .getSingleResult();
-            int deleted = em.createQuery(SQLQueries.DELETE_RESULTS_BY_USER)
-                    .setParameter("userId", user.getId())
-                    .executeUpdate();
-            em.flush();
-        } catch (NoResultException ignored) {}
+        userRepository.findByUsername(username).ifPresent(user -> {
+            historyRepository.deleteByUser(user);
+        });
     }
     
     public List<HistoryEntryDTO> getNewPoints(LocalDateTime lastCreatedAt, Long lastId, String currentUsername) {
-        TypedQuery<HistoryEntry> q;
+        List<HistoryEntry> entries;
+        
         if (lastCreatedAt == null) {
             // Если нет последней даты, получаем последние 20 точек от других пользователей
-            q = em.createQuery(SQLQueries.GET_NEW_POINTS_ALL, HistoryEntry.class);
+            entries = historyRepository.getNewPointsAll(currentUsername, 20);
         } else {
             // Получаем точки, созданные после указанной даты, исключая текущего пользователя
-            // Используем только createdAt для простоты, дубликаты будут отфильтрованы на фронтенде
-            q = em.createQuery(SQLQueries.GET_NEW_POINTS_AFTER_DATE, HistoryEntry.class);
-            q.setParameter("lastCreatedAt", lastCreatedAt);
+            entries = historyRepository.getNewPointsAfterDate(lastCreatedAt, currentUsername, 100);
         }
-        
-        q.setParameter("currentUsername", currentUsername);
-        
-        if (lastCreatedAt == null) {
-            q.setMaxResults(20); // Ограничиваем для начальной загрузки
-        } else {
-            q.setMaxResults(100); // Больше для long-polling
-        }
-
-        List<HistoryEntry> entries = q.getResultList();
 
         return entries.stream()
                 .map(h -> new HistoryEntryDTO(
