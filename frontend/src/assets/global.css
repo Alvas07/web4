@@ -1,0 +1,118 @@
+:root {
+  --bg: #f0f4ff;
+  --card: rgba(255, 255, 255, 0.7);
+  --text: #1a1a1a;
+  --accent: #007aff;
+  --hit: #2ecc71;
+  --miss: #e74c3c;
+  --axis: #333;
+}
+
+body.dark {
+  --bg: #0a0f1a;
+  --card: rgba(20, 20, 30, 0.6);
+  --text: #f5f5f5;
+  --accent: #0a84ff;
+  --axis: #aaa;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  transition: background 0.6s ease, color 0.6s ease;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top left, #00f, transparent 70%),
+  radial-gradient(circle at bottom right, #ff0080, transparent 70%);
+  filter: blur(120px);
+  z-index: -1;
+  transition: background 1s ease;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Общие стили для карточек */
+.card {
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin: 1rem auto;
+  width: 90%;
+  max-width: 1000px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* Общие стили для кнопок */
+button, .btn, a.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+  margin: 2px;
+}
+
+button:hover, .btn:hover, a.btn:hover {
+  transform: scale(1.05);
+  text-decoration: none;
+}
+
+/* Общие стили для инпутов */
+input[type="text"], select {
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  outline: none;
+  transition: background 0.4s ease;
+}
+
+input.invalid {
+  border-color: var(--miss);
+  background: rgba(255, 0, 0, 0.1);
+}
+
+/* Адаптивные стили */
+/* Планшетный: 703px - 1037px */
+@media (min-width: 703px) and (max-width: 1037px) {
+  .card {
+    border-radius: 15px;
+    padding: 1rem;
+  }
+}
+
+/* Мобильный: < 703px */
+@media (max-width: 702px) {
+  .card {
+    width: 95%;
+    padding: 0.75rem;
+    border-radius: 12px;
+  }
+  
+  button, .btn, a.btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+  }
+}
