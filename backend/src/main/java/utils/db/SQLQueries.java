@@ -48,25 +48,6 @@ public final class SQLQueries {
             DELETE FROM HistoryEntry h WHERE h.user.id = :userId
             """;
 
-    public static final String GET_HISTORY_KEYSET = """
-            SELECT h FROM HistoryEntry h
-            JOIN FETCH h.user
-            WHERE (?1 IS NULL
-                    OR h.createdAt < ?1
-                    OR (h.createdAt = ?1 AND h.id < ?2))
-            ORDER BY h.createdAt DESC, h.id DESC
-            """;
-
-    public static final String GET_HISTORY_ALL = """
-            SELECT h FROM HistoryEntry h JOIN FETCH h.user ORDER BY h.createdAt DESC, h.id DESC
-            """;
-
-    public static final String GET_HISTORY_WITH_CURSOR = """
-            SELECT h FROM HistoryEntry h JOIN FETCH h.user 
-            WHERE h.createdAt < ?1 OR (h.createdAt = ?1 AND h.id < ?2) 
-            ORDER BY h.createdAt DESC, h.id DESC
-            """;
-
     public static final String GET_HISTORY_WITH_OFFSET = """
             SELECT h FROM HistoryEntry h JOIN FETCH h.user ORDER BY h.createdAt DESC, h.id DESC
             """;

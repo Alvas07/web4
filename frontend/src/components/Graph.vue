@@ -118,7 +118,7 @@ watch(() => props.r, () => {
   setTimeout(() => {
     drawCanvas()
   }, 50)
-}, { immediate: false })
+}, { immediate: true })
 
 // Получение размера canvas (учитывая pixel ratio)
 const getCanvasSize = () => {

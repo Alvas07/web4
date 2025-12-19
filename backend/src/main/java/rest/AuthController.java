@@ -57,7 +57,7 @@ public class AuthController {
     @POST
     @Path("/register")
     public Response register(UserRequestDTO req) {
-        logger.info("Received registration request: " + req);
+        logger.info("Received registration request for username: " + req.username());
         
         // Проверка rate limit
         String clientId = getClientIdentifier();

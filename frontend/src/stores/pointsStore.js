@@ -34,7 +34,7 @@ export const usePointsStore = defineStore('points', () => {
   }
 
   const addPoints = (newPoints) => {
-    if (!Array.isArray(newPoints) || newPoints.length === 0) return
+    if (!Array.isArray(newPoints) || newPoints.length === 0) return 0
 
     const normalized = newPoints.map(normalizePoint).filter(Boolean)
     const existingIds = new Set(points.value.map(p => p.id))
@@ -50,6 +50,8 @@ export const usePointsStore = defineStore('points', () => {
 
       points.value = updatedPoints
     }
+    
+    return uniqueNewPoints.length
   }
   
   const allPointsCombined = computed(() => {
@@ -209,20 +211,28 @@ export const usePointsStore = defineStore('points', () => {
         const lastPoint = sortedOtherPoints.length > 0 ? sortedOtherPoints[0] : null
         const lastCreatedAt = lastPoint?.createdAt || lastPoint?.timestamp || null
         
+        // Запоминаем, был ли это первый запрос (когда lastCreatedAt = null)
+        const isFirstRequest = lastCreatedAt === null
+        
         // Выполняем long-polling (таймаут 25 секунд)
         const newPoints = await pointsService.pollNewPoints(lastCreatedAt, null, 25, token)
         
         if (newPoints && newPoints.length > 0) {
           // Добавляем новые точки напрямую (функция сама отфильтрует дубликаты и отсортирует)
-          addPoints(newPoints)
+          const actuallyAddedCount = addPoints(newPoints)
           
-          // Показываем уведомление о новых точках
-          const uniqueUsers = [...new Set(newPoints.map(p => p.username))]
-          uniqueUsers.forEach(username => {
-            if (username !== authStore.user?.username) {
-              showInfo(`Новые точки от пользователя ${username}`)
-            }
-          })
+          // Показываем уведомление только если:
+          // 1. Это не первый запрос (не загрузка существующих точек)
+          // 2. Действительно добавились новые точки (не дубликаты)
+          if (!isFirstRequest && actuallyAddedCount > 0) {
+            // Показываем уведомление о новых точках
+            const uniqueUsers = [...new Set(newPoints.map(p => p.username))]
+            uniqueUsers.forEach(username => {
+              if (username !== authStore.user?.username) {
+                showInfo(`Новые точки от пользователя ${username}`)
+              }
+            })
+          }
         }
       } catch (err) {
         // Игнорируем ошибки polling, но логируем их

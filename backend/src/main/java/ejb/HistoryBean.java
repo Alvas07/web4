@@ -17,31 +17,6 @@ public class HistoryBean {
     @PersistenceContext(unitName = "hitCheckerPU")
     private EntityManager em;
 
-    public List<HistoryEntryDTO> getHistory(LocalDateTime lastCreatedAt, Long lastId, int limit) {
-        TypedQuery<HistoryEntry> q;
-        if (lastCreatedAt == null) {
-            q = em.createQuery(SQLQueries.GET_HISTORY_ALL, HistoryEntry.class);
-        } else {
-            q = em.createQuery(SQLQueries.GET_HISTORY_WITH_CURSOR, HistoryEntry.class);
-            q.setParameter(1, lastCreatedAt);
-            q.setParameter(2, lastId != null ? lastId : 0L);
-        }
-        
-        q.setMaxResults(limit);
-
-        List<HistoryEntry> entries = q.getResultList();
-
-        return entries.stream()
-                .map(h -> new HistoryEntryDTO(
-                        new PointDTO(h.getPoint().getX(), h.getPoint().getY(), h.getPoint().getR()),
-                        h.isHit(),
-                        h.getUser().getUsername(),
-                        h.getCreatedAt(),
-                        h.getExecTime()
-                ))
-                .toList();
-    }
-    
     public List<HistoryEntryDTO> getHistoryWithOffset(int offset, int limit) {
         TypedQuery<HistoryEntry> q = em.createQuery(SQLQueries.GET_HISTORY_WITH_OFFSET, HistoryEntry.class);
         q.setFirstResult(offset);
@@ -83,13 +58,6 @@ public class HistoryBean {
         } catch (NoResultException ignored) {}
     }
     
-    /**
-     * Получает новые точки, созданные после указанной даты
-     * @param lastCreatedAt дата последней полученной точки
-     * @param lastId ID последней полученной точки (не используется, оставлен для совместимости)
-     * @param currentUsername имя текущего пользователя (чтобы исключить его собственные точки)
-     * @return список новых точек
-     */
     public List<HistoryEntryDTO> getNewPoints(LocalDateTime lastCreatedAt, Long lastId, String currentUsername) {
         TypedQuery<HistoryEntry> q;
         if (lastCreatedAt == null) {

@@ -6,27 +6,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Rate limiter для аутентификации (логин/регистрация)
- * Ограничение: максимум 3 запроса в 30 секунд на IP адрес или username
- */
 @Singleton
 @Startup
 public class AuthRateLimiter {
-    // Максимальное количество запросов в окне
     private static final int MAX_REQUESTS_PER_WINDOW = 3;
-    
-    // Время окна в миллисекундах (30 секунд)
     private static final long WINDOW_MS = 30000;
-    
-    // Хранилище: identifier (IP или username) -> RequestWindow
     private final Map<String, RequestWindow> requests = new ConcurrentHashMap<>();
     
-    /**
-     * Проверяет, не превышен ли лимит запросов
-     * @param identifier IP адрес или username
-     * @return true если лимит превышен, false если можно обработать запрос
-     */
     public boolean isRateLimited(String identifier) {
         long currentTime = System.currentTimeMillis();
         RequestWindow window = requests.computeIfAbsent(identifier, k -> new RequestWindow());
@@ -41,14 +27,9 @@ public class AuthRateLimiter {
         
         // Добавляем новый запрос
         window.addRequest(currentTime);
-        return false; // Лимит не превышен
+        return false;
     }
     
-    /**
-     * Получает время до следующего разрешенного запроса в миллисекундах
-     * @param identifier IP адрес или username
-     * @return время в миллисекундах до следующего разрешенного запроса, или 0 если можно запросить сейчас
-     */
     public long getTimeUntilNextRequest(String identifier) {
         long currentTime = System.currentTimeMillis();
         RequestWindow window = requests.get(identifier);
@@ -69,9 +50,6 @@ public class AuthRateLimiter {
         return Math.max(0, timeRemaining);
     }
     
-    /**
-     * Окно запросов для одного идентификатора
-     */
     private static class RequestWindow {
         private final AtomicInteger requestCount = new AtomicInteger(0);
         private long windowStart = System.currentTimeMillis();

@@ -34,7 +34,13 @@
               type="text"
               required
               :disabled="loading"
+              :class="{ 'invalid': errors.username }"
+              @input="validateUsername"
+              @blur="validateUsername"
             />
+            <div v-if="errors.username" class="error-message">
+              {{ errors.username }}
+            </div>
           </div>
           
           <div class="form-group">
@@ -46,14 +52,28 @@
                 :type="showPassword ? 'text' : 'password'"
                 required
                 :disabled="loading"
+                :class="{ 'invalid': errors.password }"
+                @input="validatePassword"
+                @blur="validatePassword"
               />
               <button
                 type="button"
                 @click="showPassword = !showPassword"
                 class="password-toggle"
+                :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
               >
-                👁
+                <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
               </button>
+            </div>
+            <div v-if="errors.password" class="error-message">
+              {{ errors.password }}
             </div>
           </div>
           
@@ -66,14 +86,28 @@
                 :type="showPassword ? 'text' : 'password'"
                 required
                 :disabled="loading"
+                :class="{ 'invalid': errors.confirmPassword }"
+                @input="validateConfirmPassword"
+                @blur="validateConfirmPassword"
               />
               <button
                 type="button"
                 @click="showPassword = !showPassword"
                 class="password-toggle"
+                :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
               >
-                👁
+                <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
               </button>
+            </div>
+            <div v-if="errors.confirmPassword" class="error-message">
+              {{ errors.confirmPassword }}
             </div>
           </div>
           
@@ -109,19 +143,134 @@ const form = reactive({
   confirmPassword: ''
 })
 
+const errors = reactive({
+  username: '',
+  password: '',
+  confirmPassword: ''
+})
+
+const validateUsername = () => {
+  const username = form.username.trim()
+  
+  if (!username) {
+    errors.username = ''
+    return false
+  }
+  
+  if (username.length < 3 || username.length > 20) {
+    errors.username = 'Логин должен быть от 3 до 20 символов'
+    return false
+  }
+  
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    errors.username = 'Логин может содержать только буквы, цифры и подчеркивание'
+    return false
+  }
+  
+  // Логин не может состоять только из цифр
+  if (/^[0-9]+$/.test(username)) {
+    errors.username = 'Логин не может состоять только из цифр'
+    return false
+  }
+  
+  // Логин должен содержать хотя бы одну букву
+  if (!/[a-zA-Z]/.test(username)) {
+    errors.username = 'Логин должен содержать хотя бы одну букву'
+    return false
+  }
+  
+  // Логин не должен начинаться с цифры
+  if (/^[0-9]/.test(username)) {
+    errors.username = 'Логин не может начинаться с цифры'
+    return false
+  }
+  
+  // Логин не должен начинаться или заканчиваться подчеркиванием
+  if (username.startsWith('_') || username.endsWith('_')) {
+    errors.username = 'Логин не может начинаться или заканчиваться подчеркиванием'
+    return false
+  }
+  
+  // Логин не должен содержать подряд более одного подчеркивания
+  if (username.includes('__')) {
+    errors.username = 'Логин не может содержать подряд более одного подчеркивания'
+    return false
+  }
+  
+  errors.username = ''
+  return true
+}
+
+const validatePassword = () => {
+  const password = form.password
+  
+  if (!password) {
+    errors.password = ''
+    return false
+  }
+  
+  if (password.length < 6 || password.length > 50) {
+    errors.password = 'Пароль должен быть от 6 до 50 символов'
+    return false
+  }
+  
+  if (!/^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':",./<>?]+$/.test(password)) {
+    errors.password = 'Пароль содержит недопустимые символы'
+    return false
+  }
+  
+  if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+    errors.password = 'Пароль должен содержать хотя бы одну букву и одну цифру'
+    return false
+  }
+  
+  errors.password = ''
+  
+  // Если это регистрация, проверяем подтверждение пароля
+  if (!isLogin.value && form.confirmPassword) {
+    validateConfirmPassword()
+  }
+  
+  return true
+}
+
+const validateConfirmPassword = () => {
+  if (isLogin.value) {
+    return true
+  }
+  
+  if (!form.confirmPassword) {
+    errors.confirmPassword = ''
+    return false
+  }
+  
+  if (form.password !== form.confirmPassword) {
+    errors.confirmPassword = 'Пароли не совпадают'
+    return false
+  }
+  
+  errors.confirmPassword = ''
+  return true
+}
+
 const handleClose = () => {
   emit('close')
+  // Сбрасываем форму и ошибки
+  form.username = ''
+  form.password = ''
+  form.confirmPassword = ''
+  errors.username = ''
+  errors.password = ''
+  errors.confirmPassword = ''
 }
 
 const handleSubmit = async () => {
   // Валидация
-  if (!form.username || !form.password) {
-    showError('Пожалуйста, заполните все поля')
-    return
-  }
+  const isUsernameValid = validateUsername()
+  const isPasswordValid = validatePassword()
+  const isConfirmPasswordValid = isLogin.value ? true : validateConfirmPassword()
   
-  if (!isLogin.value && form.password !== form.confirmPassword) {
-    showError('Пароли не совпадают')
+  if (!isUsernameValid || !isPasswordValid || !isConfirmPasswordValid) {
     return
   }
   
@@ -138,6 +287,7 @@ const handleSubmit = async () => {
     
     // Эмитируем успех
     emit('login-success')
+    handleClose()
   } catch (err) {
     showError(err.message || 'Произошла ошибка. Пожалуйста, попробуйте снова.')
   } finally {
@@ -275,6 +425,7 @@ const handleSubmit = async () => {
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 1rem;
+  transition: border-color 0.3s ease;
 }
 
 .form-group input:focus {
@@ -282,8 +433,17 @@ const handleSubmit = async () => {
   border-color: #667eea;
 }
 
+.form-group input.invalid {
+  border-color: #e74c3c;
+  border-width: 2px;
+}
+
 .password-input {
   position: relative;
+}
+
+.password-input input {
+  padding-right: 2.5rem;
 }
 
 .password-toggle {
@@ -294,7 +454,31 @@ const handleSubmit = async () => {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1rem;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  transition: color 0.3s ease;
+}
+
+.password-toggle:hover {
+  color: #333;
+}
+
+.password-toggle:focus {
+  outline: none;
+}
+
+.password-toggle svg {
+  display: block;
+}
+
+.error-message {
+  color: #e74c3c;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  min-height: 1.2em;
 }
 
 .submit-button {

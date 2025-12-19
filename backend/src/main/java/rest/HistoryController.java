@@ -8,7 +8,9 @@ import ejb.AuthBean;
 import ejb.HistoryBean;
 import entities.User;
 import exceptions.AuthException;
+import exceptions.DatabaseException;
 import jakarta.ejb.EJB;
+import jakarta.persistence.PersistenceException;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -22,6 +24,10 @@ import java.util.Optional;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class HistoryController {
+    private static final int MAX_OFFSET = 10_000;
+    private static final int MAX_LIMIT = 100;
+    private static final int MIN_LIMIT = 1;
+    
     @EJB
     private HistoryBean historyBean;
     
@@ -48,42 +54,52 @@ public class HistoryController {
     }
 
     @POST
-    public Response getHistory(HistoryRequestDTO req) {
-        // Если указан offset, используем пагинацию через offset
-        if (req.offset() > 0 || req.needTotalCount()) {
-            int limit = Math.min(req.limit(), 100);
-            int offset = Math.max(req.offset(), 0);
-            
-            List<HistoryEntryDTO> history = historyBean.getHistoryWithOffset(offset, limit);
-            Long totalCount = null;
-            
-            if (req.needTotalCount()) {
-                totalCount = historyBean.getTotalCount();
-            }
-            
-            HistoryResponseDTO response = new HistoryResponseDTO(history, totalCount);
-            return Response.ok(response).build();
-        } else {
-            // Старый способ через курсорную пагинацию (для обратной совместимости)
-            int limit = Math.min(req.limit(), 100);
-            List<HistoryEntryDTO> history = historyBean.getHistory(
-                    req.lastCreatedAt(), req.lastId(), limit
-            );
-            return Response.ok(history).build();
+    public Response getHistory(HistoryRequestDTO req, @HeaderParam("Authorization") String authHeader) {
+        try {
+            authorize(authHeader);
+        } catch (AuthException e) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(e.getMessage()).build();
         }
+        
+        int limit = Math.min(Math.max(req.limit(), MIN_LIMIT), MAX_LIMIT);
+        int offset = Math.max(req.offset(), 0);
+        
+        if (offset > MAX_OFFSET) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Offset cannot exceed " + MAX_OFFSET).build();
+        }
+        
+        List<HistoryEntryDTO> history = historyBean.getHistoryWithOffset(offset, limit);
+        Long totalCount = null;
+        
+        if (req.needTotalCount()) {
+            totalCount = historyBean.getTotalCount();
+        }
+        
+        HistoryResponseDTO response = new HistoryResponseDTO(history, totalCount);
+        return Response.ok(response).build();
     }
 
     @DELETE
     @Path("/{username}")
-    public Response deleteHistory(@PathParam("username") String username) {
-        historyBean.deleteByUsername(username);
-        return Response.noContent().build();
+    public Response deleteHistory(@PathParam("username") String username, @HeaderParam("Authorization") String authHeader) {
+        try {
+            User currentUser = authorize(authHeader);
+            
+            if (!currentUser.getUsername().equals(username)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("You can only delete your own history").build();
+            }
+            
+            historyBean.deleteByUsername(username);
+            return Response.noContent().build();
+        } catch (AuthException e) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(e.getMessage()).build();
+        }
     }
     
-    /**
-     * Long-polling endpoint для получения новых точек от других пользователей
-     * Ждет до 30 секунд, пока не появятся новые точки или не истечет таймаут
-     */
     @POST
     @Path("/poll")
     public Response pollNewPoints(PollRequestDTO req, @HeaderParam("Authorization") String authHeader) {
@@ -124,9 +140,12 @@ public class HistoryController {
         } catch (AuthException e) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity(e.getMessage()).build();
-        } catch (Exception e) {
+        } catch (PersistenceException e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Error during polling: " + e.getMessage()).build();
+                    .entity("Database error during polling: " + e.getMessage()).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Invalid request parameters: " + e.getMessage()).build();
         }
     }
 }

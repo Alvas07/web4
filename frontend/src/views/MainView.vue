@@ -59,7 +59,14 @@ onMounted(async () => {
     return
   }
   
-  // История точек теперь загружается через пагинацию в HistoryTable компоненте
+  // Загружаем историю точек в store для отрисовки на графике
+  try {
+    await pointsStore.loadHistory()
+  } catch (error) {
+    console.error('Ошибка при загрузке истории:', error)
+  }
+  
+  // История точек также загружается через пагинацию в HistoryTable компоненте
   // Запускаем long-polling для получения новых точек
   pointsStore.startPolling()
   
@@ -106,6 +113,12 @@ const handlePointChecked = (newPoints) => {
 
 const handleRChanged = (r) => {
   pointsStore.setSelectedR(r)
+  // Принудительно перерисовываем график при изменении R
+  if (graphRef.value) {
+    setTimeout(() => {
+      graphRef.value.drawCanvas()
+    }, 50)
+  }
 }
 
 const handleGraphPointClick = (point) => {

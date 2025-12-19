@@ -1,26 +1,34 @@
 package dto;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
-public class HistoryRequestDTO {
-    @JsonProperty("lastCreatedAt")
-    private String lastCreatedAtStr;
-    
-    @JsonProperty("lastId")
-    private Long lastId;
-    
-    @JsonProperty("limit")
-    private int limit = 20;
-    
-    @JsonProperty("offset")
-    private int offset = 0;
-    
-    @JsonProperty("needTotalCount")
-    private boolean needTotalCount = false;
-    
-    public HistoryRequestDTO() {}
+public record HistoryRequestDTO(
+    @JsonProperty("lastCreatedAt") String lastCreatedAtStr,
+    @JsonProperty("lastId") Long lastId,
+    @JsonProperty("limit") int limit,
+    @JsonProperty("offset") int offset,
+    @JsonProperty("needTotalCount") boolean needTotalCount
+) {
+    @JsonCreator
+    public HistoryRequestDTO(
+            @JsonProperty("lastCreatedAt") String lastCreatedAtStr,
+            @JsonProperty("lastId") Long lastId,
+            @JsonProperty("limit") Integer limit,
+            @JsonProperty("offset") Integer offset,
+            @JsonProperty("needTotalCount") Boolean needTotalCount
+    ) {
+        this(
+            lastCreatedAtStr,
+            lastId,
+            limit != null ? limit : 20,
+            offset != null ? offset : 0,
+            needTotalCount != null ? needTotalCount : false
+        );
+    }
     
     public LocalDateTime lastCreatedAt() {
         if (lastCreatedAtStr == null || lastCreatedAtStr.isEmpty()) {
@@ -28,45 +36,8 @@ public class HistoryRequestDTO {
         }
         try {
             return LocalDateTime.parse(lastCreatedAtStr, DateTimeFormatter.ISO_DATE_TIME);
-        } catch (Exception e) {
+        } catch (DateTimeParseException e) {
             return null;
         }
-    }
-    
-    public Long lastId() {
-        return lastId;
-    }
-    
-    public int limit() {
-        return limit;
-    }
-    
-    public int offset() {
-        return offset;
-    }
-    
-    public boolean needTotalCount() {
-        return needTotalCount;
-    }
-    
-    // Setters for deserialization
-    public void setLastCreatedAt(String lastCreatedAtStr) {
-        this.lastCreatedAtStr = lastCreatedAtStr;
-    }
-    
-    public void setLastId(Long lastId) {
-        this.lastId = lastId;
-    }
-    
-    public void setLimit(int limit) {
-        this.limit = limit;
-    }
-    
-    public void setOffset(int offset) {
-        this.offset = offset;
-    }
-    
-    public void setNeedTotalCount(boolean needTotalCount) {
-        this.needTotalCount = needTotalCount;
     }
 }

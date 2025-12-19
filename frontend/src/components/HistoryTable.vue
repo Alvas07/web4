@@ -14,7 +14,7 @@
         <button 
           class="btn btn-clear-history"
           @click="clearHistory"
-          :disabled="loading"
+          :disabled="loading || clearing"
         >
           Очистить историю
         </button>
@@ -86,6 +86,16 @@
         Вперед →
       </button>
     </div>
+    
+    <ConfirmModal
+      :show="showConfirmModal"
+      title="Подтверждение очистки"
+      message="Вы уверены, что хотите очистить историю? Это действие нельзя отменить."
+      confirm-text="Очистить"
+      :loading="clearing"
+      @confirm="handleConfirmClear"
+      @cancel="showConfirmModal = false"
+    />
   </div>
 </template>
 
@@ -95,6 +105,7 @@ import { usePointsStore } from '../stores/pointsStore'
 import { useAuthStore } from '../stores/authStore'
 import { showError, showSuccess, showInfo } from '../utils/notifications'
 import * as pointsService from '../services/pointsService'
+import ConfirmModal from './ConfirmModal.vue'
 
 const pointsStore = usePointsStore()
 const authStore = useAuthStore()
@@ -105,6 +116,8 @@ const currentPage = ref(1)
 const pageSize = 15
 const totalRecords = ref(0)
 const allHistoryPoints = ref([])
+const showConfirmModal = ref(false)
+const clearing = ref(false)
 
 // Проверяем, находимся ли мы в режиме разработки
 const isDevelopment = computed(() => {
@@ -197,15 +210,19 @@ const formatNumber = (value) => {
   return num.toFixed(3)
 }
 
-const clearHistory = async () => {
-  if (!confirm('Вы уверены, что хотите очистить историю?')) {
-    return
-  }
+const clearHistory = () => {
+  showConfirmModal.value = true
+}
+
+const handleConfirmClear = async () => {
+  clearing.value = true
   
   try {
     const currentUsername = authStore.user?.username
     if (!currentUsername) {
       showError('Не авторизован')
+      showConfirmModal.value = false
+      clearing.value = false
       return
     }
     
@@ -232,8 +249,11 @@ const clearHistory = async () => {
     }
     
     showSuccess('История очищена')
+    showConfirmModal.value = false
   } catch (error) {
     showError(error.message || 'Ошибка при очистке истории')
+  } finally {
+    clearing.value = false
   }
 }
 
